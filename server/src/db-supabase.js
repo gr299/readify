@@ -3,6 +3,20 @@ import { DB_URL } from './config.js';
 
 const sql = postgres(DB_URL, {
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connection: {
+    application_name: 'readify-api',
+  },
+  max: 10, // Maximum number of connections
+  idle_timeout: 20, // Close idle connections after 20 seconds
+  connect_timeout: 10, // Connection timeout in seconds
+  onnotice: (notice) => console.log('[postgres] notice:', notice.message),
+});
+
+// Test connection on startup
+sql`SELECT 1`.then(() => {
+  console.log('[postgres] Database connection successful');
+}).catch((err) => {
+  console.error('[postgres] Database connection failed:', err.message);
 });
 
 export function normalizeQuery(query) {
