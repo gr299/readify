@@ -231,7 +231,7 @@ async function seed() {
       published_at
     );
 
-    setArticleTags(Number(info.lastInsertRowid), TAG_SETS[a.category]);
+    await setArticleTags(Number(info.lastInsertRowid), TAG_SETS[a.category]);
   }
 
   const published = await dbAll("SELECT id FROM articles WHERE status = 'published'");
