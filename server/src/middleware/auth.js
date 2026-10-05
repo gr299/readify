@@ -62,26 +62,34 @@ export async function requireAdminDomain(req, _res, next) {
   const origin = req.get('origin') || req.get('referer');
   let hostname = (req.hostname || '').toLowerCase().replace(/^www\./, '');
 
+  console.log('[requireAdminDomain] Origin:', origin);
+  console.log('[requireAdminDomain] Referer:', req.get('referer'));
+  console.log('[requireAdminDomain] Hostname:', hostname);
+
   // Extract hostname from Origin/Referer if available
   if (origin) {
     try {
       const url = new URL(origin);
       hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+      console.log('[requireAdminDomain] Extracted hostname from origin:', hostname);
     } catch {
       // Invalid URL, use hostname
+      console.log('[requireAdminDomain] Invalid origin URL, using hostname');
     }
   }
 
   if (isDevelopmentHost(hostname)) {
+    console.log('[requireAdminDomain] Development host, allowing');
     return next();
   }
 
   const row = await dbGet('SELECT id FROM domains WHERE host = ?', hostname);
   if (!row) {
-    console.log('[requireAdminDomain] Hostname not found:', hostname);
+    console.log('[requireAdminDomain] Hostname not found in domains:', hostname);
     return next(
       new ApiError(403, 'This domain is not authorized to access the Admin Portal')
     );
   }
+  console.log('[requireAdminDomain] Hostname found, allowing');
   return next();
 }
