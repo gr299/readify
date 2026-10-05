@@ -58,7 +58,19 @@ export function requireAdmin(req, _res, next) {
 }
 
 export async function requireAdminDomain(req, _res, next) {
-  const hostname = (req.hostname || '').toLowerCase().replace(/^www\./, '');
+  // Check Origin header for frontend domain, fallback to hostname
+  const origin = req.get('origin') || req.get('referer');
+  let hostname = (req.hostname || '').toLowerCase().replace(/^www\./, '');
+
+  // Extract hostname from Origin/Referer if available
+  if (origin) {
+    try {
+      const url = new URL(origin);
+      hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    } catch {
+      // Invalid URL, use hostname
+    }
+  }
 
   if (isDevelopmentHost(hostname)) {
     return next();
