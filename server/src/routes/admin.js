@@ -6,7 +6,7 @@ import { serializeArticle } from './articles.js';
 
 const router = Router();
 
-router.use(requireAdminDomain);
+router.use(wrap(requireAdminDomain));
 router.use(requireAdmin);
 
 // Helper to handle both sync (SQLite) and async (Supabase) database calls
