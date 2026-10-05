@@ -6,6 +6,8 @@ export class ApiError extends Error {
   }
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 async function request(path, options = {}) {
   const { method = 'GET', body, form } = options;
   const headers = {};
@@ -17,7 +19,9 @@ async function request(path, options = {}) {
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(path, {
+  const url = API_BASE ? `${API_BASE}${path}` : path;
+
+  const res = await fetch(url, {
     method,
     headers,
     body: payload,
