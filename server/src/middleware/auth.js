@@ -64,7 +64,7 @@ export function requireAdminDomain(req, _res, next) {
     return next();
   }
 
-  const row = db.prepare('SELECT id FROM domains WHERE host = ? AND is_active = 1').get(hostname);
+  const row = db.prepare('SELECT id FROM domains WHERE host = ?').get(hostname);
   if (!row) {
     return next(
       new ApiError(403, 'This domain is not authorized to access the Admin Portal')
