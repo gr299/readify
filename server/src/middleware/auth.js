@@ -66,6 +66,7 @@ export async function requireAdminDomain(req, _res, next) {
 
   const row = await dbGet('SELECT id FROM domains WHERE host = ?', hostname);
   if (!row) {
+    console.log('[requireAdminDomain] Hostname not found:', hostname);
     return next(
       new ApiError(403, 'This domain is not authorized to access the Admin Portal')
     );
