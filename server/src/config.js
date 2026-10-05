@@ -16,8 +16,10 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 export const PORT = Number(process.env.PORT) || 4000;
 export const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-export const DB_URL = process.env.DATABASE_URL;
-export const USE_SUPABASE = process.env.USE_SUPABASE === 'true';
+export const DB_URL = process.env.DATABASE_URL || '';
+export const USE_SUPABASE =
+  process.env.USE_SUPABASE === 'true' ||
+  (process.env.USE_SUPABASE !== 'false' && Boolean(process.env.DATABASE_URL));
 
 export function getJwtSecret() {
   if (fs.existsSync(JWT_SECRET_FILE)) {
