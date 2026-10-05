@@ -57,14 +57,14 @@ export function requireAdmin(req, _res, next) {
   return next();
 }
 
-export function requireAdminDomain(req, _res, next) {
+export async function requireAdminDomain(req, _res, next) {
   const hostname = (req.hostname || '').toLowerCase().replace(/^www\./, '');
 
   if (isDevelopmentHost(hostname)) {
     return next();
   }
 
-  const row = db.prepare('SELECT id FROM domains WHERE host = ?').get(hostname);
+  const row = await dbGet('SELECT id FROM domains WHERE host = ?', hostname);
   if (!row) {
     return next(
       new ApiError(403, 'This domain is not authorized to access the Admin Portal')
