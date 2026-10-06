@@ -29,12 +29,14 @@ async function dbRun(query, ...params) {
   return db.prepare(query).run(...params);
 }
 
+const isProduction = process.env.NODE_ENV === 'production' || USE_SUPABASE;
+
 function setAuthCookie(res, user) {
   const token = signToken(user);
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
+    sameSite: isProduction ? 'none' : 'lax',
+    secure: isProduction,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/',
   });
@@ -151,7 +153,12 @@ router.delete(
     const nowFunc = USE_SUPABASE ? "NOW()" : "datetime('now')";
     await dbRun(`UPDATE users SET active = 0, updated_at = ${nowFunc} WHERE id = ?`, req.user.id);
     await trackActivity(req.user.id, 'account.deactivated', 'user', req.user.id);
-    res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: 'lax', secure: false, path: '/' });
+    res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: isProduction ? 'none' : 'lax',
+      secure: isProduction,
+      path: '/',
+    });
     return res.json({ ok: true });
   })
 );

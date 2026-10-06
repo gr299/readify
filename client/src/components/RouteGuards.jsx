@@ -52,9 +52,13 @@ export function isDevHost() {
   return host === 'localhost' || host === '127.0.0.1' || DEV_HOST_SUFFIXES.some((s) => host.endsWith(s));
 }
 
-export function AuthorizedDomainGate({ children, domains }) {
+export function AuthorizedDomainGate({ children, domains, domainsLoaded }) {
   if (isDevHost()) return children;
+  // Don't block before we've fetched the domains list from the server
+  if (!domainsLoaded) return children;
   const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
+  // If no domains are configured yet, let the admin through so they can configure them
+  if (domains.length === 0) return children;
   const ok = domains.some((d) => d.host.toLowerCase() === host && d.is_active);
   if (!ok) {
     return (

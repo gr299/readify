@@ -22,12 +22,19 @@ export const USE_SUPABASE =
   (process.env.USE_SUPABASE !== 'false' && Boolean(process.env.DATABASE_URL));
 
 export function getJwtSecret() {
-  if (fs.existsSync(JWT_SECRET_FILE)) {
-    return fs.readFileSync(JWT_SECRET_FILE, 'utf8').trim();
+  if (process.env.JWT_SECRET && process.env.JWT_SECRET.trim()) {
+    return process.env.JWT_SECRET.trim();
   }
-  const secret = crypto.randomBytes(48).toString('hex');
-  fs.writeFileSync(JWT_SECRET_FILE, secret, { mode: 0o600 });
-  return secret;
+  try {
+    if (fs.existsSync(JWT_SECRET_FILE)) {
+      return fs.readFileSync(JWT_SECRET_FILE, 'utf8').trim();
+    }
+    const secret = crypto.randomBytes(48).toString('hex');
+    fs.writeFileSync(JWT_SECRET_FILE, secret, { mode: 0o600 });
+    return secret;
+  } catch {
+    return crypto.randomBytes(48).toString('hex');
+  }
 }
 
 export const JWT_SECRET = getJwtSecret();
@@ -54,5 +61,9 @@ export function isDevelopmentHost(hostname) {
   if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
   if (host.endsWith('.monkeycode-ai.live')) return true;
   if (host.endsWith('.monkeycode-ai.online')) return true;
+  try {
+    const clientHost = new URL(CLIENT_ORIGIN).hostname.toLowerCase().replace(/^www\./, '');
+    if (host === clientHost) return true;
+  } catch {}
   return false;
 }

@@ -46,10 +46,18 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [domains, setDomains] = useState([]);
+  const [domainsLoaded, setDomainsLoaded] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    api.get('/api/admin/domains').then((d) => setDomains(d.domains)).catch(() => {});
+    api.get('/api/admin/domains')
+      .then((d) => {
+        setDomains(d.domains);
+        setDomainsLoaded(true);
+      })
+      .catch(() => {
+        setDomainsLoaded(true); // don't block forever on error
+      });
   }, []);
 
   const handleLogout = async () => {
@@ -59,7 +67,7 @@ export default function AdminLayout() {
   };
 
   return (
-    <AuthorizedDomainGate domains={domains}>
+    <AuthorizedDomainGate domains={domains} domainsLoaded={domainsLoaded}>
       <div className="admin-layout">
         <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
           <Logo to="/" />

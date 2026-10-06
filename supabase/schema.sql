@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS comments (
   article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
+  edited_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_comments_article ON comments(article_id);
@@ -104,6 +105,7 @@ CREATE TABLE IF NOT EXISTS reactions (
 );
 CREATE INDEX IF NOT EXISTS idx_reactions_article ON reactions(article_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_user ON reactions(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reactions_user_article ON reactions(article_id, user_id);
 
 -- Bookmarks table
 CREATE TABLE IF NOT EXISTS bookmarks (
@@ -138,8 +140,13 @@ CREATE TABLE IF NOT EXISTS domains (
   id SERIAL PRIMARY KEY,
   host TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migrations for existing databases
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS is_active INTEGER NOT NULL DEFAULT 1;
 
 -- Follows table
 CREATE TABLE IF NOT EXISTS follows (

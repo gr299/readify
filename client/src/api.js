@@ -25,7 +25,7 @@ async function request(path, options = {}) {
     method,
     headers,
     body: payload,
-    credentials: 'same-origin',
+    credentials: 'include',
   });
 
   let data = null;

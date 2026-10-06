@@ -1,7 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { PORT, UPLOAD_DIR, CLIENT_ORIGIN } from './config.js';
+import { PORT, UPLOAD_DIR, CLIENT_ORIGIN, isDevelopmentHost } from './config.js';
 import { attachUser } from './middleware/auth.js';
 import { csrfProtection } from './middleware/security.js';
 import { generalLimiter, adminLimiter } from './middleware/rateLimit.js';
@@ -44,10 +44,23 @@ app.use(
 );
 
 app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const cleanClientOrigin = CLIENT_ORIGIN.replace(/\/+$/, '');
+  let allowOrigin = cleanClientOrigin;
+  if (origin) {
+    const cleanOrigin = origin.replace(/\/+$/, '');
+    try {
+      const url = new URL(origin);
+      if (cleanOrigin === cleanClientOrigin || isDevelopmentHost(url.hostname)) {
+        allowOrigin = origin;
+      }
+    } catch {}
+  }
+
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Access-Control-Allow-Origin', CLIENT_ORIGIN);
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');

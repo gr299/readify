@@ -6,8 +6,7 @@ import { serializeArticle } from './articles.js';
 
 const router = Router();
 
-// Temporarily disabled domain check for debugging
-// router.use(wrap(requireAdminDomain));
+router.use(wrap(requireAdminDomain));
 router.use(requireAdmin);
 
 // Helper to handle both sync (SQLite) and async (Supabase) database calls
@@ -408,7 +407,7 @@ router.post(
       throw new ApiError(400, 'A valid domain is required (e.g. admin.readify-domain-1.com)');
     }
     await dbRun(
-      'INSERT INTO domains (host, label) VALUES (?, ?) ON CONFLICT(host) DO UPDATE SET is_active = 1, label = excluded.label',
+      'INSERT INTO domains (host, label, is_active) VALUES (?, ?, 1) ON CONFLICT(host) DO UPDATE SET is_active = 1, label = excluded.label',
       host, label
     );
     const row = await dbGet('SELECT * FROM domains WHERE host = ?', host);
@@ -609,14 +608,12 @@ router.post(
     }
     const featured = req.body.featured ? 1 : 0;
     const nowFunc = USE_SUPABASE ? "NOW()" : "datetime('now')";
-    const featuredAtCase = USE_SUPABASE 
-      ? `CASE WHEN $1 = 1 THEN NOW() ELSE featured_at END`
-      : `CASE WHEN ? = 1 THEN datetime('now') ELSE featured_at END`;
+    const featuredAtSql = featured === 1 ? nowFunc : 'featured_at';
     await dbRun(
       `UPDATE articles SET featured = ?, updated_at = ${nowFunc},
-        featured_at = ${featuredAtCase}
+        featured_at = ${featuredAtSql}
        WHERE id = ?`,
-      featured, featured, article.id
+      featured, article.id
     );
     await trackActivity(req.user.id, featured ? 'article.featured' : 'article.unfeatured', 'article', article.id);
     const updated = await dbGet('SELECT * FROM articles WHERE id = ?', article.id);

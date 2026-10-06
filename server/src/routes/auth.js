@@ -34,12 +34,14 @@ async function dbAll(query, ...params) {
   return db.prepare(query).all(...params);
 }
 
+const isProduction = process.env.NODE_ENV === 'production' || USE_SUPABASE;
+
 function setAuthCookie(res, user) {
   const token = signToken(user);
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
+    sameSite: isProduction ? 'none' : 'lax',
+    secure: isProduction,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/',
   });
@@ -92,7 +94,12 @@ router.post(
 );
 
 router.post('/logout', (_req, res) => {
-  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: 'lax', secure: false, path: '/' });
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: isProduction ? 'none' : 'lax',
+    secure: isProduction,
+    path: '/',
+  });
   return res.json({ ok: true });
 });
 

@@ -262,20 +262,33 @@ function buildListQuery({ q, category, tag, author, sort, featured, page, limit 
   params.status = 'published';
 
   if (q) {
-    const ftsMatch = buildFtsMatch(q);
-    if (ftsMatch) {
-      where.push('a.id IN (SELECT rowid FROM articles_fts WHERE articles_fts MATCH :fts)');
-      params.fts = ftsMatch;
-    } else {
+    if (USE_SUPABASE) {
       const like = `%${q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
       where.push(
-        `(a.title LIKE :q ESCAPE '\\' OR a.summary LIKE :q ESCAPE '\\'
-          OR a.content LIKE :q ESCAPE '\\' OR a.author LIKE :q ESCAPE '\\'
-          OR EXISTS (SELECT 1 FROM categories c WHERE c.id = a.category_id AND c.name LIKE :q ESCAPE '\\')
+        `(a.search_vector @@ plainto_tsquery('english', :q_raw)
+          OR a.title ILIKE :q OR a.summary ILIKE :q OR a.content ILIKE :q OR a.author ILIKE :q
+          OR EXISTS (SELECT 1 FROM categories c WHERE c.id = a.category_id AND c.name ILIKE :q)
           OR EXISTS (SELECT 1 FROM article_tags at JOIN tags t ON t.id = at.tag_id
-                     WHERE at.article_id = a.id AND t.name LIKE :q ESCAPE '\\'))`
+                     WHERE at.article_id = a.id AND t.name ILIKE :q))`
       );
+      params.q_raw = q;
       params.q = like;
+    } else {
+      const ftsMatch = buildFtsMatch(q);
+      if (ftsMatch) {
+        where.push('a.id IN (SELECT rowid FROM articles_fts WHERE articles_fts MATCH :fts)');
+        params.fts = ftsMatch;
+      } else {
+        const like = `%${q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
+        where.push(
+          `(a.title LIKE :q ESCAPE '\\' OR a.summary LIKE :q ESCAPE '\\'
+            OR a.content LIKE :q ESCAPE '\\' OR a.author LIKE :q ESCAPE '\\'
+            OR EXISTS (SELECT 1 FROM categories c WHERE c.id = a.category_id AND c.name LIKE :q ESCAPE '\\')
+            OR EXISTS (SELECT 1 FROM article_tags at JOIN tags t ON t.id = at.tag_id
+                       WHERE at.article_id = a.id AND t.name LIKE :q ESCAPE '\\'))`
+        );
+        params.q = like;
+      }
     }
   }
 
@@ -591,15 +604,14 @@ router.patch(
     }
 
     const nowFunc = USE_SUPABASE ? "NOW()" : "datetime('now')";
-    const publishedAtCase = USE_SUPABASE 
-      ? `CASE WHEN $1 = 'published' AND published_at IS NULL THEN NOW() ELSE published_at END`
-      : `CASE WHEN ? = 'published' AND published_at IS NULL THEN datetime('now') ELSE published_at END`;
-    
+    const updatePublishedAt = next === 'published' && !article.published_at;
+    const publishedAtSql = updatePublishedAt ? nowFunc : 'published_at';
+
     await dbRun(
       `UPDATE articles SET status = ?, rejection_reason = ?, updated_at = ${nowFunc},
-        published_at = ${publishedAtCase}
+        published_at = ${publishedAtSql}
        WHERE id = ?`,
-      next, rejection_reason, next, article.id
+      next, rejection_reason, article.id
     );
 
     await trackActivity(req.user.id, `article.${next}`, 'article', article.id);

@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { db, USE_SUPABASE } from '../db.js';
-import { JWT_SECRET, COOKIE_NAME, isDevelopmentHost } from '../config.js';
+import { JWT_SECRET, COOKIE_NAME, isDevelopmentHost, CLIENT_ORIGIN } from '../config.js';
 import { ApiError } from '../utils.js';
 
 export function signToken(user) {
@@ -58,38 +58,42 @@ export function requireAdmin(req, _res, next) {
 }
 
 export async function requireAdminDomain(req, _res, next) {
-  // Check Origin header for frontend domain, fallback to hostname
   const origin = req.get('origin') || req.get('referer');
   let hostname = (req.hostname || '').toLowerCase().replace(/^www\./, '');
 
-  console.log('[requireAdminDomain] Origin:', origin);
-  console.log('[requireAdminDomain] Referer:', req.get('referer'));
-  console.log('[requireAdminDomain] Hostname:', hostname);
-
-  // Extract hostname from Origin/Referer if available
   if (origin) {
     try {
       const url = new URL(origin);
       hostname = url.hostname.toLowerCase().replace(/^www\./, '');
-      console.log('[requireAdminDomain] Extracted hostname from origin:', hostname);
     } catch {
-      // Invalid URL, use hostname
-      console.log('[requireAdminDomain] Invalid origin URL, using hostname');
+      // Invalid URL, keep hostname
     }
   }
 
   if (isDevelopmentHost(hostname)) {
-    console.log('[requireAdminDomain] Development host, allowing');
     return next();
   }
 
-  const row = await dbGet('SELECT id FROM domains WHERE host = ?', hostname);
+  // Allow if hostname matches configured CLIENT_ORIGIN
+  try {
+    const clientHost = new URL(CLIENT_ORIGIN).hostname.toLowerCase().replace(/^www\./, '');
+    if (hostname === clientHost) {
+      return next();
+    }
+  } catch {}
+
+  // If no domains are configured in the database yet, permit access so the admin can configure them
+  const countRow = await dbGet('SELECT COUNT(*) AS c FROM domains WHERE is_active = 1');
+  const activeDomainsCount = Number(countRow?.c || 0);
+  if (activeDomainsCount === 0) {
+    return next();
+  }
+
+  const row = await dbGet('SELECT id FROM domains WHERE host = ? AND is_active = 1', hostname);
   if (!row) {
-    console.log('[requireAdminDomain] Hostname not found in domains:', hostname);
     return next(
-      new ApiError(403, 'This domain is not authorized to access the Admin Portal')
+      new ApiError(403, `This domain (${hostname || 'unknown'}) is not authorized to access the Admin Portal`)
     );
   }
-  console.log('[requireAdminDomain] Hostname found, allowing');
   return next();
 }

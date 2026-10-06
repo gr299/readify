@@ -9,7 +9,9 @@ function originAllowed(origin) {
     const url = new URL(origin);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
     if (isDevelopmentHost(url.hostname)) return true;
-    return origin === CLIENT_ORIGIN;
+    const cleanOrigin = origin.replace(/\/+$/, '');
+    const cleanClientOrigin = CLIENT_ORIGIN.replace(/\/+$/, '');
+    return cleanOrigin === cleanClientOrigin;
   } catch {
     return false;
   }
