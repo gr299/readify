@@ -87,12 +87,11 @@ router.patch(
       }
     }
     if (Object.keys(updates).length > 0) {
-      const sets = Object.keys(updates).map((k) => `${k} = @${k}`).join(', ');
+      const keys = Object.keys(updates);
+      const values = Object.values(updates);
+      const sets = keys.map((k) => `${k} = ?`).join(', ');
       const nowFunc = USE_SUPABASE ? "NOW()" : "datetime('now')";
-      await dbRun(`UPDATE users SET ${sets}, updated_at = ${nowFunc} WHERE id = @id`, {
-        ...updates,
-        id: req.user.id,
-      });
+      await dbRun(`UPDATE users SET ${sets}, updated_at = ${nowFunc} WHERE id = ?`, ...values, req.user.id);
     }
     const updated = await dbGet('SELECT * FROM users WHERE id = ?', req.user.id);
     return res.json({ user: publicUser(updated) });
