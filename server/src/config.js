@@ -11,8 +11,11 @@ export const UPLOAD_DIR = path.join(ROOT_DIR, 'uploads');
 export const DB_PATH = path.join(DATA_DIR, 'readify.db');
 export const JWT_SECRET_FILE = path.join(DATA_DIR, '.jwt-secret');
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Only create directories locally, not in Vercel serverless
+if (process.env.VERCEL !== '1') {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 export const PORT = Number(process.env.PORT) || 4000;
 export const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
