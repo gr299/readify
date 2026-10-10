@@ -22,5 +22,10 @@
     "postgres": "^3.4.9",
     "sanitize-html": "^2.11.0",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "sanitize-html": {
+      "htmlparser2": "^9.1.0"
+    }
   }
 }
