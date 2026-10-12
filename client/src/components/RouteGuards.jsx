@@ -27,7 +27,7 @@ export function RequireGuest({ children }) {
   return children;
 }
 
-const DEV_HOST_SUFFIXES = ['monkeycode-ai.live', 'monkeycode-ai.online'];
+const DEV_HOST_SUFFIXES = ['monkeycode-ai.live', 'monkeycode-ai.online', 'vercel.app'];
 
 export function RequireAdmin({ children }) {
   const { user, loading } = useAuth();
