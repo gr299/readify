@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { fileURLToPath } from 'node:url';
 import { db, setSetting, USE_SUPABASE } from './db.js';
 import { avatarDataUri, sanitizeContent } from './utils.js';
 import { setArticleTags } from './routes/articles.js';
@@ -152,7 +153,7 @@ const ARTICLES = [
   },
 ];
 
-async function seed() {
+export async function seed() {
   console.log('[seed] Seeding database...');
 
   const users = [
@@ -180,12 +181,13 @@ async function seed() {
   for (const u of users) {
     const existing = await dbGet('SELECT id FROM users WHERE email = ?', u.email);
     let id;
+    const hash = await bcrypt.hash(u.password, 12);
     if (existing) {
       id = existing.id;
+      await dbRun('UPDATE users SET password_hash = ?, active = 1 WHERE id = ?', hash, id);
     } else {
-      const hash = await bcrypt.hash(u.password, 12);
       const info = await dbRun(
-        'INSERT INTO users (name, email, password_hash, role, avatar) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO users (name, email, password_hash, role, avatar, active) VALUES (?, ?, ?, ?, ?, 1)',
         u.name, u.email, hash, u.role, avatarDataUri(u.name)
       );
       id = Number(info.lastInsertRowid);
@@ -296,12 +298,15 @@ async function seed() {
     domains: (await dbGet('SELECT COUNT(*) AS c FROM domains')).c,
   };
   console.log('[seed]', JSON.stringify(counts));
-  if (!USE_SUPABASE) {
+  if (!USE_SUPABASE && process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
     db.close();
   }
+  return counts;
 }
 
-seed().catch((err) => {
-  console.error('[seed] Failed:', err);
-  process.exit(1);
-});
+if (process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
+  seed().catch((err) => {
+    console.error('[seed] Failed:', err);
+    process.exit(1);
+  });
+}

@@ -6,6 +6,7 @@ import { ApiError, avatarDataUri, publicUser, wrap, trackActivity } from '../uti
 import { attachUser, signToken } from '../middleware/auth.js';
 import { authLimiter } from '../middleware/rateLimit.js';
 import { validate, schemas } from '../validation.js';
+import { seed } from '../seed.js';
 
 const router = Router();
 
@@ -113,6 +114,14 @@ router.get(
       return res.json({ user: null });
     }
     return res.json({ user: publicUser(req.user) });
+  })
+);
+
+router.post(
+  '/seed-demo',
+  wrap(async (req, res) => {
+    const counts = await seed();
+    return res.json({ ok: true, message: 'Demo data seeded successfully', counts });
   })
 );
 
