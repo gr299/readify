@@ -116,33 +116,4 @@ router.get(
   })
 );
 
-router.post(
-  '/bootstrap-admin',
-  wrap(async (req, res) => {
-    const email = (req.body.email || 'admin@readify.app').trim().toLowerCase();
-    const password = req.body.password || 'Admin123!';
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    const existing = await dbGet('SELECT * FROM users WHERE email = ?', email);
-    if (existing) {
-      await dbRun(
-        'UPDATE users SET password_hash = ?, role = ?, active = 1 WHERE email = ?',
-        passwordHash, 'admin', email
-      );
-    } else {
-      await dbRun(
-        'INSERT INTO users (name, email, password_hash, role, avatar, active) VALUES (?, ?, ?, ?, ?, 1)',
-        'Admin User', email, passwordHash, 'admin', avatarDataUri('Admin User')
-      );
-    }
-
-    const adminUser = await dbGet('SELECT * FROM users WHERE email = ?', email);
-    return res.json({
-      ok: true,
-      message: 'Admin account created/updated successfully',
-      user: publicUser(adminUser),
-    });
-  })
-);
-
 export default router;
