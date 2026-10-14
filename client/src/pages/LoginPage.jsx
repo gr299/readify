@@ -17,12 +17,11 @@ const validateEmail = (value) => {
 const validatePassword = (value) => (value ? '' : 'Enter your password.');
 
 function messageFor(err) {
-  if (err instanceof ApiError) {
-    if (err.status === 401) return 'Invalid email or password';
-    if (err.status === 429) return 'Too many attempts. Please wait a moment and try again.';
-    if (err.status >= 500) return 'Something went wrong on our side. Please try again.';
-    return err.message || 'Sign in failed';
-  }
+  const status = err?.status || (err instanceof ApiError ? err.status : undefined);
+  if (status === 401) return 'Invalid email or password';
+  if (status === 429) return 'Too many attempts. Please wait a moment and try again.';
+  if (status >= 500) return 'Something went wrong on our side. Please try again.';
+  if (err?.message && !err.message.includes('fetch')) return err.message;
   return "We couldn't reach the server. Check your connection and try again.";
 }
 
