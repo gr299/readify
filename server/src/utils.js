@@ -184,7 +184,7 @@ export function errorHandler(err, req, res, _next) {
     return res.status(err.status).json({ error: err.message, details: err.details });
   }
   console.error('[readify] unhandled error:', err);
-  return res.status(500).json({ error: 'Internal server error', message: err.message, stack: err.stack });
+  return res.status(500).json({ error: 'Internal server error' });
 }
 
 export async function trackActivity(userId, action, entityType, entityId, meta) {
