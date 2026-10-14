@@ -3,10 +3,10 @@
 
 -- Insert demo users (passwords: Admin123! and User123!)
 INSERT INTO users (name, email, password_hash, role, active) VALUES
-  ('Admin User', 'admin@readify.app', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4VQyZ8x5mXq5q0iW', 'admin', 1),
-  ('Alice', 'alice@readify.app', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4VQyZ8x5mXq5q0iW', 'user', 1),
-  ('Bob', 'bob@readify.app', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4VQyZ8x5mXq5q0iW', 'user', 1)
-ON CONFLICT (email) DO NOTHING;
+  ('Admin User', 'admin@readify.app', '$2a$12$GB8q0jbq23pN7oiDhv/ZDuWh7X.alBG3wue/nMFKJRisNM6.n.AMS', 'admin', 1),
+  ('Alice', 'alice@readify.app', '$2a$12$47IFVL4UhyOswNPRt3LWkuKuclQ7TKGNMto86qnx.S.zv5muv3QY2', 'user', 1),
+  ('Bob', 'bob@readify.app', '$2a$12$47IFVL4UhyOswNPRt3LWkuKuclQ7TKGNMto86qnx.S.zv5muv3QY2', 'user', 1)
+ON CONFLICT (email) DO UPDATE SET password_hash = excluded.password_hash, role = excluded.role;
 
 -- Insert categories
 INSERT INTO categories (name, slug) VALUES
