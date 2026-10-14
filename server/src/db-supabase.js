@@ -7,15 +7,18 @@ BigInt.prototype.toJSON = function () {
   return Number.isSafeInteger(n) ? n : this.toString();
 };
 
+const isServerless = process.env.VERCEL === '1';
+
 const sql = DB_URL
   ? postgres(DB_URL, {
       ssl: { rejectUnauthorized: false },
       connection: {
         application_name: 'readify-api',
       },
-      max: 10, // Maximum number of connections
-      idle_timeout: 20, // Close idle connections after 20 seconds
-      connect_timeout: 30, // Connection timeout in seconds (increased for Vercel)
+      max: isServerless ? 1 : 10, // 1 connection per serverless lambda to never exhaust Supabase pool
+      idle_timeout: isServerless ? 5 : 20, // Free idle connections fast
+      connect_timeout: 10,
+      prepare: false, // Compatible with Supabase PgBouncer pooler in both session and transaction modes
       onnotice: (notice) => console.log('[postgres] notice:', notice.message),
       types: {
         bigint: {
@@ -30,17 +33,6 @@ const sql = DB_URL
       },
     })
   : null;
-
-// Only test connection on startup if Supabase is enabled and DB_URL is set
-if (USE_SUPABASE && sql) {
-  sql`SELECT 1`
-    .then(() => {
-      console.log('[postgres] Database connection successful');
-    })
-    .catch((err) => {
-      console.error('[postgres] Database connection failed:', err.message);
-    });
-}
 
 export function normalizeQueryAndParams(query, params = []) {
   let statement = query;
