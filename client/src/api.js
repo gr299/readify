@@ -8,7 +8,7 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
 
 async function request(path, options = {}) {
   const { method = 'GET', body, form } = options;
@@ -26,7 +26,8 @@ async function request(path, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const url = API_BASE ? `${API_BASE}${path}` : path;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const url = API_BASE ? `${API_BASE}${cleanPath}` : cleanPath;
 
   const res = await fetch(url, {
     method,
