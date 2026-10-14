@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { ArticleCard } from '../components/ArticleCard.jsx';
+import { ArticleCard, ArticleCardSkeleton } from '../components/ArticleCard.jsx';
 import { SearchBar } from '../components/SearchBar.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { SearchIcon, UsersIcon } from '../components/Icons.jsx';
@@ -133,7 +133,7 @@ export default function DiscoverPage() {
       </div>
 
       {loading ? (
-        <div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 320 }} />)}</div>
+        <div className="grid">{Array.from({ length: 6 }).map((_, i) => <ArticleCardSkeleton key={i} />)}</div>
       ) : articles.length === 0 ? (
         <div className="empty-state">
           <div className="icon"><SearchIcon style={{ fontSize: '2.2rem' }} /></div>

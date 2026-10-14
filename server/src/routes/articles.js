@@ -39,82 +39,141 @@ async function dbAll(query, ...params) {
   return db.prepare(query).all(...params);
 }
 
-async function getUserByArticle(article) {
-  return await dbGet('SELECT * FROM users WHERE id = ?', article.user_id);
+export async function serializeArticles(articles, currentUser = null) {
+  if (!articles) return [];
+  const list = Array.isArray(articles) ? articles.filter(Boolean) : [articles];
+  if (list.length === 0) return [];
+
+  const articleIds = list.map((a) => a.id).filter(Boolean);
+  const userIds = [...new Set(list.map((a) => a.user_id).filter(Boolean))];
+  const categoryIds = [...new Set(list.map((a) => a.category_id).filter(Boolean))];
+
+  // 1. Batch load Users
+  const userMap = new Map();
+  if (userIds.length > 0) {
+    const qMarks = userIds.map(() => '?').join(', ');
+    const users = await dbAll(`SELECT * FROM users WHERE id IN (${qMarks})`, ...userIds);
+    for (const u of users) {
+      userMap.set(u.id, u);
+    }
+  }
+
+  // 2. Batch load Categories
+  const categoryMap = new Map();
+  if (categoryIds.length > 0) {
+    const qMarks = categoryIds.map(() => '?').join(', ');
+    const cats = await dbAll(`SELECT id, name, slug FROM categories WHERE id IN (${qMarks})`, ...categoryIds);
+    for (const c of cats) {
+      categoryMap.set(c.id, { id: c.id, name: c.name, slug: c.slug });
+    }
+  }
+
+  // 3. Batch load Tags
+  const tagsMap = new Map();
+  if (articleIds.length > 0) {
+    const qMarks = articleIds.map(() => '?').join(', ');
+    const tagRows = await dbAll(
+      `SELECT at.article_id, t.id, t.name, t.slug FROM tags t
+       JOIN article_tags at ON at.tag_id = t.id
+       WHERE at.article_id IN (${qMarks}) ORDER BY t.name`,
+      ...articleIds
+    );
+    for (const r of tagRows) {
+      if (!tagsMap.has(r.article_id)) tagsMap.set(r.article_id, []);
+      tagsMap.get(r.article_id).push({ id: r.id, name: r.name, slug: r.slug });
+    }
+  }
+
+  // 4. Batch load Reactions
+  const reactionCountsMap = new Map();
+  const totalReactionsMap = new Map();
+  if (articleIds.length > 0) {
+    const qMarks = articleIds.map(() => '?').join(', ');
+    const reactionRows = await dbAll(
+      `SELECT article_id, type, COUNT(*) AS c FROM reactions
+       WHERE article_id IN (${qMarks}) GROUP BY article_id, type`,
+      ...articleIds
+    );
+    for (const r of reactionRows) {
+      if (!reactionCountsMap.has(r.article_id)) reactionCountsMap.set(r.article_id, {});
+      const count = Number(r.c);
+      reactionCountsMap.get(r.article_id)[r.type] = count;
+      totalReactionsMap.set(r.article_id, (totalReactionsMap.get(r.article_id) || 0) + count);
+    }
+  }
+
+  // 5. Batch load Current User Reactions and Bookmarks
+  const userReactionMap = new Map();
+  const bookmarkMap = new Set();
+  if (currentUser && articleIds.length > 0) {
+    const qMarks = articleIds.map(() => '?').join(', ');
+    const urRows = await dbAll(
+      `SELECT article_id, type FROM reactions WHERE article_id IN (${qMarks}) AND user_id = ?`,
+      ...articleIds, currentUser.id
+    );
+    for (const ur of urRows) {
+      userReactionMap.set(ur.article_id, ur.type);
+    }
+    const bmRows = await dbAll(
+      `SELECT article_id FROM bookmarks WHERE article_id IN (${qMarks}) AND user_id = ?`,
+      ...articleIds, currentUser.id
+    );
+    for (const bm of bmRows) {
+      bookmarkMap.add(bm.article_id);
+    }
+  }
+
+  const isAdmin = currentUser ? currentUser.role === 'admin' : false;
+
+  return list.map((article) => {
+    const user = userMap.get(article.user_id) || null;
+    const category = categoryMap.get(article.category_id) || null;
+    const tags = tagsMap.get(article.id) || [];
+    const reaction_counts = reactionCountsMap.get(article.id) || {};
+    const total = totalReactionsMap.get(article.id) || 0;
+    const user_reaction = userReactionMap.get(article.id) || null;
+    const bookmarked = bookmarkMap.has(article.id);
+    const isOwner = currentUser ? currentUser.id === article.user_id : false;
+
+    return {
+      id: article.id,
+      title: article.title,
+      author: user ? publicUser(user) : { id: article.user_id, name: article.author || 'Unknown' },
+      author_display: article.author || (user ? user.name : 'Unknown'),
+      category,
+      summary: article.summary,
+      content: article.content,
+      cover_image: article.cover_image,
+      tags,
+      status: article.status,
+      featured: !!article.featured,
+      rejection_reason: article.rejection_reason,
+      views_count: article.views_count,
+      reactions_count: total,
+      reaction_counts,
+      user_reaction,
+      bookmarked,
+      reading_time: readingTime(article.content),
+      comments_count: article.comments_count,
+      created_at: article.created_at,
+      updated_at: article.updated_at,
+      published_at: article.published_at,
+      permissions: {
+        can_edit: isAdmin || isOwner,
+        can_delete: isAdmin || isOwner,
+        can_submit: isOwner && (article.status === 'draft' || article.status === 'rejected'),
+        can_publish: isAdmin,
+        can_reject: isAdmin,
+        can_archive: isAdmin,
+      },
+    };
+  });
 }
 
 export async function serializeArticle(article, currentUser = null) {
   if (!article) return null;
-  const user = await getUserByArticle(article);
-  const category = article.category_id
-    ? await dbGet('SELECT id, name, slug FROM categories WHERE id = ?', article.category_id)
-    : null;
-  const tags = await dbAll(
-    `SELECT t.id, t.name, t.slug FROM tags t
-     JOIN article_tags at ON at.tag_id = t.id
-     WHERE at.article_id = ? ORDER BY t.name`,
-    article.id
-  );
-  const reactionRows = await dbAll(
-    'SELECT type, COUNT(*) AS c FROM reactions WHERE article_id = ? GROUP BY type',
-    article.id
-  );
-  const reaction_counts = {};
-  let total = 0;
-  for (const r of reactionRows) {
-    reaction_counts[r.type] = r.c;
-    total += r.c;
-  }
-
-  let user_reaction = null;
-  let bookmarked = false;
-  if (currentUser) {
-    const ur = await dbGet(
-      'SELECT type FROM reactions WHERE article_id = ? AND user_id = ?',
-      article.id, currentUser.id
-    );
-    user_reaction = ur ? ur.type : null;
-    bookmarked = !!(await dbGet(
-      'SELECT id FROM bookmarks WHERE article_id = ? AND user_id = ?',
-      article.id, currentUser.id
-    ));
-  }
-
-  const isOwner = currentUser ? currentUser.id === article.user_id : false;
-  const isAdmin = currentUser ? currentUser.role === 'admin' : false;
-
-  return {
-    id: article.id,
-    title: article.title,
-    author: user ? publicUser(user) : { id: article.user_id, name: article.author || 'Unknown' },
-    author_display: article.author || (user ? user.name : 'Unknown'),
-    category,
-    summary: article.summary,
-    content: article.content,
-    cover_image: article.cover_image,
-    tags,
-    status: article.status,
-    featured: !!article.featured,
-    rejection_reason: article.rejection_reason,
-    views_count: article.views_count,
-    reactions_count: total,
-    reaction_counts,
-    user_reaction,
-    bookmarked,
-    reading_time: readingTime(article.content),
-    comments_count: article.comments_count,
-    created_at: article.created_at,
-    updated_at: article.updated_at,
-    published_at: article.published_at,
-    permissions: {
-      can_edit: isAdmin || isOwner,
-      can_delete: isAdmin || isOwner,
-      can_submit: isOwner && (article.status === 'draft' || article.status === 'rejected'),
-      can_publish: isAdmin,
-      can_reject: isAdmin,
-      can_archive: isAdmin,
-    },
-  };
+  const list = await serializeArticles([article], currentUser);
+  return list[0] || null;
 }
 
 async function getArticleOrFail(id) {
@@ -339,7 +398,7 @@ router.get(
       { ...params, limit, offset }
     );
 
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
     return res.json({ articles, page, limit, total, total_pages: Math.ceil(total / limit) });
   })
 );
@@ -351,7 +410,7 @@ router.get(
       `SELECT * FROM articles WHERE status = 'published'
        ORDER BY published_at DESC LIMIT 8`
     );
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
     return res.json({ articles });
   })
 );
@@ -375,7 +434,7 @@ router.get(
        ORDER BY updated_at DESC LIMIT :limit OFFSET :offset`,
       { ...params, limit, offset }
     );
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
     return res.json({
       articles,
       page,
@@ -400,7 +459,7 @@ router.get(
       `SELECT a.* ${from} ORDER BY a.published_at DESC LIMIT ? OFFSET ?`,
       req.user.id, limit, offset
     );
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
     return res.json({
       articles,
       page,
@@ -426,8 +485,67 @@ router.get(
        ORDER BY a.published_at DESC LIMIT 6`,
       req.user.id
     );
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
     return res.json({ articles, has_interests: true });
+  })
+);
+
+router.get(
+  '/home-feed',
+  wrap(async (req, res) => {
+    const latestRows = await dbAll(
+      `SELECT * FROM articles WHERE status = 'published' ORDER BY published_at DESC LIMIT 8`
+    );
+    const viewedRows = await dbAll(
+      `SELECT * FROM articles WHERE status = 'published' ORDER BY views_count DESC LIMIT 4`
+    );
+    const reactedRows = await dbAll(
+      `SELECT * FROM articles WHERE status = 'published' ORDER BY reactions_count DESC LIMIT 4`
+    );
+    const featuredRows = await dbAll(
+      `SELECT * FROM articles WHERE status = 'published' AND featured = 1 ORDER BY published_at DESC LIMIT 6`
+    );
+    const categories = await dbAll(`SELECT * FROM categories ORDER BY name ASC`);
+    const tags = await dbAll(
+      `SELECT t.*, (SELECT COUNT(*) FROM article_tags at JOIN articles a ON a.id = at.article_id WHERE at.tag_id = t.id AND a.status = 'published') AS article_count
+       FROM tags t ORDER BY article_count DESC LIMIT 16`
+    );
+
+    let forYouRows = [];
+    let hasInterests = true;
+    if (req.user) {
+      const has = (await dbGet('SELECT COUNT(*) AS c FROM user_interests WHERE user_id = ?', req.user.id)).c > 0;
+      hasInterests = has;
+      if (has) {
+        forYouRows = await dbAll(
+          `SELECT DISTINCT a.* FROM articles a
+           JOIN article_tags at ON at.article_id = a.id
+           JOIN user_interests ui ON ui.tag_id = at.tag_id
+           JOIN users u ON u.id = a.user_id AND u.active = 1
+           WHERE ui.user_id = ? AND a.status = 'published'
+           ORDER BY a.published_at DESC LIMIT 6`,
+          req.user.id
+        );
+      }
+    }
+
+    const rowMap = new Map();
+    for (const r of [...latestRows, ...viewedRows, ...reactedRows, ...featuredRows, ...forYouRows]) {
+      if (!rowMap.has(r.id)) rowMap.set(r.id, r);
+    }
+    const serializedList = await serializeArticles(Array.from(rowMap.values()), req.user);
+    const serializedMap = new Map(serializedList.map((a) => [a.id, a]));
+
+    return res.json({
+      latest: latestRows.map((r) => serializedMap.get(r.id)),
+      viewed: viewedRows.map((r) => serializedMap.get(r.id)),
+      reacted: reactedRows.map((r) => serializedMap.get(r.id)),
+      featured: featuredRows.map((r) => serializedMap.get(r.id)),
+      for_you: forYouRows.map((r) => serializedMap.get(r.id)),
+      has_interests: hasInterests,
+      categories,
+      tags,
+    });
   })
 );
 

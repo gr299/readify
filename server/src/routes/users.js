@@ -3,7 +3,7 @@ import { db, USE_SUPABASE } from '../db.js';
 import { ApiError, paginate, publicUser, wrap } from '../utils.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate, schemas } from '../validation.js';
-import { serializeArticle } from './articles.js';
+import { serializeArticle, serializeArticles } from './articles.js';
 
 const router = Router();
 
@@ -224,7 +224,7 @@ router.get(
       user.id, limit, offset
     );
 
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
 
     return res.json({
       user: {

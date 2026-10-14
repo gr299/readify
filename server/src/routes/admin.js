@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db, getSetting, setSetting, USE_SUPABASE } from '../db.js';
 import { ApiError, paginate, publicUser, slugify, trackActivity, wrap } from '../utils.js';
 import { requireAdmin, requireAdminDomain } from '../middleware/auth.js';
-import { serializeArticle } from './articles.js';
+import { serializeArticle, serializeArticles } from './articles.js';
 
 const router = Router();
 
@@ -51,7 +51,7 @@ router.get(
     const total_domains = (await dbGet('SELECT COUNT(*) AS c FROM domains')).c;
 
     const recent_articles = (await dbAll('SELECT * FROM articles ORDER BY created_at DESC LIMIT 8'));
-    const serializedArticles = await Promise.all(recent_articles.map((a) => serializeArticle(a, null)));
+    const serializedArticles = await serializeArticles(recent_articles, null);
     const recent_users = (await dbAll('SELECT id, name, email, role, avatar, created_at FROM users ORDER BY created_at DESC LIMIT 8'));
     const recent_comments = await dbAll(
       `SELECT c.*, u.name AS user_name, a.title AS article_title FROM comments c
@@ -127,7 +127,7 @@ router.get(
       { ...params, limit, offset }
     );
 
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
 
     return res.json({
       articles,
@@ -593,7 +593,7 @@ router.get(
       `SELECT * FROM articles WHERE status = 'published' AND featured = 1
        ORDER BY published_at DESC LIMIT 30`
     );
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
     return res.json({ articles });
   })
 );

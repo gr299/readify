@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { ArticleCard } from '../components/ArticleCard.jsx';
+import { ArticleCard, ArticleCardSkeleton } from '../components/ArticleCard.jsx';
 import { SearchBar } from '../components/SearchBar.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { UploadIcon, LightbulbIcon } from '../components/Icons.jsx';
@@ -19,28 +19,51 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/api/articles?sort=latest&limit=8'),
-      api.get('/api/articles?sort=most-viewed&limit=4'),
-      api.get('/api/articles?sort=most-reacted&limit=4'),
-      api.get('/api/articles?featured=1&limit=6'),
-      api.get('/api/categories'),
-      api.get('/api/tags?limit=16'),
-      user ? api.get('/api/articles/for-you') : Promise.resolve(null),
-    ])
-      .then(([l, v, r, f, c, t, fy]) => {
-        setLatest(l.articles);
-        setViewed(v.articles);
-        setReacted(r.articles);
-        setFeatured(f.articles);
-        setCategories(c.categories);
-        setTags(t.tags);
-        if (fy) {
-          setForYou(fy.articles);
-          setHasInterests(fy.has_interests);
-        }
+    let active = true;
+    api.get('/api/articles/home-feed')
+      .then((data) => {
+        if (!active) return;
+        setLatest(data.latest || []);
+        setViewed(data.viewed || []);
+        setReacted(data.reacted || []);
+        setFeatured(data.featured || []);
+        setCategories(data.categories || []);
+        setTags(data.tags || []);
+        setForYou(data.for_you || []);
+        setHasInterests(data.has_interests ?? true);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!active) return;
+        Promise.all([
+          api.get('/api/articles?sort=latest&limit=8'),
+          api.get('/api/articles?sort=most-viewed&limit=4'),
+          api.get('/api/articles?sort=most-reacted&limit=4'),
+          api.get('/api/articles?featured=1&limit=6'),
+          api.get('/api/categories'),
+          api.get('/api/tags?limit=16'),
+          user ? api.get('/api/articles/for-you') : Promise.resolve(null),
+        ])
+          .then(([l, v, r, f, c, t, fy]) => {
+            if (!active) return;
+            setLatest(l.articles || []);
+            setViewed(v.articles || []);
+            setReacted(r.articles || []);
+            setFeatured(f.articles || []);
+            setCategories(c.categories || []);
+            setTags(t.tags || []);
+            if (fy) {
+              setForYou(fy.articles || []);
+              setHasInterests(fy.has_interests ?? true);
+            }
+          })
+          .catch(() => {});
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   return (
@@ -56,11 +79,15 @@ export default function HomePage() {
             <SearchBar large />
           </div>
           <div className="row" style={{ marginTop: 22, gap: 8 }}>
-            {categories.slice(0, 6).map((c) => (
-              <Link key={c.id} to={`/discover?category=${c.slug}`} className="badge badge-category" style={{ padding: '7px 14px', fontSize: '0.82rem' }}>
-                {c.name}
-              </Link>
-            ))}
+            {categories.length > 0
+              ? categories.slice(0, 6).map((c) => (
+                  <Link key={c.id} to={`/discover?category=${c.slug}`} className="badge badge-category" style={{ padding: '7px 14px', fontSize: '0.82rem' }}>
+                    {c.name}
+                  </Link>
+                ))
+              : Array.from({ length: 6 }).map((_, i) => (
+                  <span key={i} className="skeleton" style={{ width: 84, height: 28, borderRadius: 999 }} />
+                ))}
           </div>
         </div>
       </section>
@@ -86,7 +113,11 @@ export default function HomePage() {
             </div>
             <Link to="/profile" className="btn btn-outline btn-sm">Edit interests</Link>
           </div>
-          {!hasInterests ? (
+          {loading ? (
+            <div className="grid">
+              {Array.from({ length: 3 }).map((_, i) => <ArticleCardSkeleton key={i} />)}
+            </div>
+          ) : !hasInterests ? (
             <div className="empty-state">
               <div className="icon"><LightbulbIcon style={{ fontSize: '2.2rem' }} /></div>
               <h3>Make Readify yours</h3>
@@ -105,7 +136,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {featured.length > 0 && (
+      {(loading || featured.length > 0) && (
         <section className="container featured-section">
           <div className="section-head">
             <div>
@@ -113,10 +144,12 @@ export default function HomePage() {
               <h2>Featured articles</h2>
               <p className="sub">Hand-picked stories chosen by the Readify editors.</p>
             </div>
-            <Link to="/discover" className="btn btn-outline btn-sm">View all</Link>
+            {!loading && <Link to="/discover" className="btn btn-outline btn-sm">View all</Link>}
           </div>
           <div className="grid">
-            {featured.map((a) => <ArticleCard key={a.id} article={a} />)}
+            {loading
+              ? Array.from({ length: 3 }).map((_, i) => <ArticleCardSkeleton key={i} />)
+              : featured.map((a) => <ArticleCard key={a.id} article={a} />)}
           </div>
         </section>
       )}
@@ -127,10 +160,10 @@ export default function HomePage() {
             <h2>Latest articles</h2>
             <p className="sub">Fresh from the Readify feed.</p>
           </div>
-          <Link to="/discover" className="btn btn-outline btn-sm">View all</Link>
+          {!loading && <Link to="/discover" className="btn btn-outline btn-sm">View all</Link>}
         </div>
         {loading ? (
-          <div className="grid">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 320 }} />)}</div>
+          <div className="grid">{Array.from({ length: 4 }).map((_, i) => <ArticleCardSkeleton key={i} />)}</div>
         ) : latest.length === 0 ? (
           <div className="empty-state"><p>No articles published yet. Check back soon!</p></div>
         ) : (
@@ -140,26 +173,30 @@ export default function HomePage() {
         )}
       </section>
 
-      {(viewed.length > 0 || reacted.length > 0) && (
+      {(loading || viewed.length > 0 || reacted.length > 0) && (
         <section className="container">
           <div className="two-col">
-            {viewed.length > 0 && (
+            {(loading || viewed.length > 0) && (
               <div>
                 <div className="section-head" style={{ margin: '40px 0 16px' }}>
                   <h2 style={{ fontSize: '1.35rem' }}>Most viewed</h2>
                 </div>
                 <div className="stack">
-                  {viewed.map((a) => <ArticleCard key={a.id} article={a} />)}
+                  {loading
+                    ? Array.from({ length: 2 }).map((_, i) => <ArticleCardSkeleton key={i} />)
+                    : viewed.map((a) => <ArticleCard key={a.id} article={a} />)}
                 </div>
               </div>
             )}
-            {reacted.length > 0 && (
+            {(loading || reacted.length > 0) && (
               <div>
                 <div className="section-head" style={{ margin: '40px 0 16px' }}>
                   <h2 style={{ fontSize: '1.35rem' }}>Most reacted</h2>
                 </div>
                 <div className="stack">
-                  {reacted.map((a) => <ArticleCard key={a.id} article={a} />)}
+                  {loading
+                    ? Array.from({ length: 2 }).map((_, i) => <ArticleCardSkeleton key={i} />)
+                    : reacted.map((a) => <ArticleCard key={a.id} article={a} />)}
                 </div>
               </div>
             )}

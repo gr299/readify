@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, timeAgo } from '../api.js';
 import { useToast } from '../context/ToastContext.jsx';
-import { ArticleCard } from '../components/ArticleCard.jsx';
+import { ArticleCard, ArticleCardSkeleton } from '../components/ArticleCard.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { BookmarkIcon } from '../components/Icons.jsx';
 
@@ -44,7 +44,7 @@ export default function SavedPage() {
       </div>
 
       {loading ? (
-        <div className="grid">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 300 }} />)}</div>
+        <div className="grid">{Array.from({ length: 3 }).map((_, i) => <ArticleCardSkeleton key={i} />)}</div>
       ) : articles.length === 0 ? (
         <div className="empty-state">
           <div className="icon"><BookmarkIcon style={{ fontSize: '2rem' }} /></div>

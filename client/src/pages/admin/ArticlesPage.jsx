@@ -225,9 +225,18 @@ export default function ArticlesPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={8}><div className="skeleton" style={{ height: 220 }} /></td></tr>
-            )}
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <tr key={i}>
+                <td><div className="skeleton" style={{ height: 16, width: '80%' }} /></td>
+                <td><div className="skeleton" style={{ height: 16, width: 100 }} /></td>
+                <td><div className="skeleton" style={{ height: 16, width: 70 }} /></td>
+                <td><div className="skeleton" style={{ height: 16, width: 60 }} /></td>
+                <td><div className="skeleton" style={{ height: 16, width: 80 }} /></td>
+                <td><div className="skeleton" style={{ height: 16, width: 80 }} /></td>
+                <td><div className="skeleton" style={{ height: 16, width: 40 }} /></td>
+                <td><div className="skeleton" style={{ height: 16, width: 80 }} /></td>
+              </tr>
+            ))}
             {!loading && articles.length === 0 && (
               <tr><td colSpan={8} className="muted" style={{ textAlign: 'center', padding: 32 }}>No articles match your filters.</td></tr>
             )}

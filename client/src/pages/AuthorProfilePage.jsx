@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, formatDate } from '../api.js';
 import { Avatar } from '../components/Avatar.jsx';
-import { ArticleCard } from '../components/ArticleCard.jsx';
+import { ArticleCard, ArticleCardSkeleton } from '../components/ArticleCard.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -80,7 +80,7 @@ export default function AuthorProfilePage() {
   };
 
   if (loading) {
-    return <div className="container" style={{ padding: '60px 20px' }}><div className="skeleton" style={{ height: 200 }} /><div className="grid" style={{ marginTop: 24 }}>{Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 300 }} />)}</div></div>;
+    return <div className="container" style={{ padding: '60px 20px' }}><div className="skeleton" style={{ height: 200, borderRadius: 'var(--radius)' }} /><div className="grid" style={{ marginTop: 24 }}>{Array.from({ length: 3 }).map((_, i) => <ArticleCardSkeleton key={i} />)}</div></div>;
   }
 
   if (notFound || !author) {

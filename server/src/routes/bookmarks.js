@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db, USE_SUPABASE } from '../db.js';
 import { ApiError, paginate, wrap } from '../utils.js';
 import { requireAuth } from '../middleware/auth.js';
-import { serializeArticle } from './articles.js';
+import { serializeArticle, serializeArticles } from './articles.js';
 
 const router = Router();
 
@@ -66,7 +66,7 @@ router.get(
        WHERE b.user_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?`,
       req.user.id, limit, offset
     );
-    const articles = await Promise.all(rows.map((a) => serializeArticle(a, req.user)));
+    const articles = await serializeArticles(rows, req.user);
     return res.json({
       articles,
       page,
