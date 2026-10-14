@@ -70,8 +70,9 @@ router.post(
 
     const user = await dbGet('SELECT * FROM users WHERE id = ?', info.lastInsertRowid);
     await trackActivity(user.id, 'account.created', 'user', user.id);
+    const token = signToken(user);
     setAuthCookie(res, user);
-    return res.status(201).json({ user: publicUser(user) });
+    return res.status(201).json({ user: publicUser(user), token });
   })
 );
 
@@ -88,8 +89,9 @@ router.post(
     }
 
     await trackActivity(user.id, 'auth.login', 'user', user.id);
+    const token = signToken(user);
     setAuthCookie(res, user);
-    return res.json({ user: publicUser(user) });
+    return res.json({ user: publicUser(user), token });
   })
 );
 

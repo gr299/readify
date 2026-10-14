@@ -19,6 +19,11 @@ async function request(path, options = {}) {
     payload = JSON.stringify(body);
   }
 
+  const token = localStorage.getItem('readify_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const url = API_BASE ? `${API_BASE}${path}` : path;
 
   const res = await fetch(url, {

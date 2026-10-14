@@ -19,7 +19,9 @@ async function dbGet(query, ...params) {
 }
 
 export async function attachUser(req, _res, next) {
-  const token = req.cookies?.[COOKIE_NAME];
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  const token = req.cookies?.[COOKIE_NAME] || bearerToken;
   if (!token) {
     req.user = null;
     return next();
