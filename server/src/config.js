@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -7,22 +8,32 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const ROOT_DIR = path.resolve(__dirname, '..');
 export const DATA_DIR = path.join(ROOT_DIR, '..', 'data');
-export const UPLOAD_DIR = path.join(ROOT_DIR, 'uploads');
+export const UPLOAD_DIR =
+  process.env.VERCEL === '1'
+    ? path.join(os.tmpdir(), 'readify-uploads')
+    : path.join(ROOT_DIR, 'uploads');
 export const DB_PATH = path.join(DATA_DIR, 'readify.db');
 export const JWT_SECRET_FILE = path.join(DATA_DIR, '.jwt-secret');
 
-// Only create directories locally, not in Vercel serverless
-if (process.env.VERCEL !== '1') {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Create required directories safely (works locally and in Vercel serverless /tmp)
+try {
+  if (process.env.VERCEL !== '1') {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+} catch (err) {
+  console.warn('[readify] Failed to create directories:', err.message);
 }
 
 export const PORT = Number(process.env.PORT) || 4000;
 export const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-export const DB_URL = process.env.DATABASE_URL || '';
+const rawDbUrl = (process.env.DATABASE_URL || '').trim();
+const isPlaceholderDb = rawDbUrl.includes('[YOUR-') || rawDbUrl.includes('[YOUR_');
+export const DB_URL = isPlaceholderDb ? '' : rawDbUrl;
 export const USE_SUPABASE =
-  process.env.USE_SUPABASE === 'true' ||
-  (process.env.USE_SUPABASE !== 'false' && Boolean(process.env.DATABASE_URL));
+  !isPlaceholderDb &&
+  (process.env.USE_SUPABASE === 'true' ||
+    (process.env.USE_SUPABASE !== 'false' && Boolean(DB_URL)));
 
 export function getJwtSecret() {
   if (process.env.JWT_SECRET && process.env.JWT_SECRET.trim()) {
@@ -64,6 +75,7 @@ export function isDevelopmentHost(hostname) {
   if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
   if (host.endsWith('.monkeycode-ai.live')) return true;
   if (host.endsWith('.monkeycode-ai.online')) return true;
+  if (host.endsWith('.vercel.app')) return true;
   try {
     const clientHost = new URL(CLIENT_ORIGIN).hostname.toLowerCase().replace(/^www\./, '');
     if (host === clientHost) return true;
